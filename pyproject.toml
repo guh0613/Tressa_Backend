@@ -5,6 +5,7 @@ description = "Backend for Tressa"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "alembic>=1.14.0",
     "asyncpg>=0.30.0",
     "bcrypt>=4.2.1",
     "fastapi>=0.115.5",

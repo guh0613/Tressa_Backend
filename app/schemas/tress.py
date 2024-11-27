@@ -15,6 +15,7 @@ class TressCreate(TressBase):
 class Tress(TressBase):
     id: int
     owner_id: int
+    owner_username: str
 
     class Config:
         orm_mode = True

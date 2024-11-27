@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -7,7 +7,7 @@ from app.db.base import get_db
 from app.models.tress import Tress
 from app.models.user import User
 from app.schemas.tress import TressCreate, Tress as TressSchema
-from app.api.endpoints.auth import get_current_user
+from app.api.endpoints.auth import get_current_user, get_current_user_optional
 
 router = APIRouter()
 
@@ -20,7 +20,8 @@ async def create_tress(
 ):
     db_tress = Tress(
         **tress.dict(),
-        owner_id=current_user.id
+        owner_id=current_user.id,
+        owner_username=current_user.username
     )
     db.add(db_tress)
     await db.commit()
@@ -59,16 +60,21 @@ async def read_user_tresses(
 async def read_tress(
         tress_id: int,
         db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+        current_user: Optional[User] = Depends(get_current_user_optional)  # 修改为可选依赖
 ):
+    # 查询 tress
     result = await db.execute(select(Tress).where(Tress.id == tress_id))
     tress = result.scalar_one_or_none()
 
     if not tress:
         raise HTTPException(status_code=404, detail="Tress not found")
 
-    if not tress.is_public and tress.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this tress")
+    if not current_user:
+        if not tress.is_public:
+            raise HTTPException(status_code=403, detail="Not authorized to access this tress")
+    else:
+        if not tress.is_public and tress.owner_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this tress")
 
     return tress
 

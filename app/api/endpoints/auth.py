@@ -1,4 +1,6 @@
 from datetime import timedelta
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -16,7 +18,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str):
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(select(User).where(User.username == email))
     user = result.scalar_one_or_none()
     if not user:
         return False
@@ -44,6 +46,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     if user is None:
         raise credentials_exception
     return user
+
+
+async def get_current_user_optional(
+        token: str = Depends(oauth2_scheme),
+        db: AsyncSession = Depends(get_db)
+) -> Optional[User]:
+    try:
+        return await get_current_user(token, db)
+    except HTTPException:
+        return None
 
 
 @router.post("/register", response_model=UserSchema)
