@@ -29,6 +29,31 @@ async def create_tress(
     return db_tress
 
 
+@router.put("/{tress_id}", response_model=TressSchema)
+async def update_tress(
+        tress_id: int,
+        tress: TressCreate,
+        db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    result = await db.execute(select(Tress).where(Tress.id == tress_id))
+    db_tress = result.scalar_one_or_none()
+
+    if not db_tress:
+        raise HTTPException(status_code=404, detail="Tress not found")
+
+    if db_tress.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this tress")
+
+    for key, value in tress.dict().items():
+        setattr(db_tress, key, value)
+
+    await db.commit()
+    await db.refresh(db_tress)
+
+    return db_tress
+
+
 @router.get("/", response_model=List[TressSchema])
 async def read_tresses(
         skip: int = 0,
