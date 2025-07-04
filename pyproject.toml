@@ -9,6 +9,7 @@ dependencies = [
     "asyncpg>=0.30.0",
     "bcrypt>=4.2.1",
     "fastapi>=0.115.5",
+    "greenlet>=3.2.3",
     "passlib>=1.7.4",
     "psycopg2-binary>=2.9.10",
     "pydantic-settings>=2.6.1",

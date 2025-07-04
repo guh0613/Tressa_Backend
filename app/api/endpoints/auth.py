@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,13 +49,35 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
 
 
 async def get_current_user_optional(
-        token: str = Depends(oauth2_scheme),
+        request: Request,
         db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
-    try:
-        return await get_current_user(token, db)
-    except HTTPException:
+    """
+    可选的用户认证依赖，不强制要求token
+    从Authorization header中提取token，如果没有或无效则返回None
+    """
+    authorization = request.headers.get("Authorization")
+    if not authorization:
         return None
+
+    try:
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            return None
+    except ValueError:
+        return None
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+    except JWTError:
+        return None
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    return user
 
 
 @router.post("/register", response_model=UserSchema)

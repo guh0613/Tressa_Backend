@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: abcdefg
+      POSTGRES_DB: tressa_db
+    volumes:
+      - tressa_data:/var/lib/postgresql/data
+
+volumes:
+  tressa_data:
