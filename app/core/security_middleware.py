@@ -10,6 +10,7 @@ from fastapi import Request, HTTPException, status
 from fastapi.responses import Response
 import re
 import html
+from app.core.config import settings
 
 
 class RateLimiter:
@@ -119,7 +120,7 @@ def validate_content_type(language: str, content: str) -> bool:
     """验证内容类型是否与声明的语言匹配"""
     if not language or not content:
         return True
-    
+
     # 基本的内容验证规则
     validation_rules = {
         "javascript": [r'function\s+\w+', r'var\s+\w+', r'const\s+\w+', r'let\s+\w+'],
@@ -130,17 +131,59 @@ def validate_content_type(language: str, content: str) -> bool:
         "json": [r'^\s*{', r'^\s*\['],
         "sql": [r'SELECT\s+', r'INSERT\s+', r'UPDATE\s+', r'DELETE\s+'],
     }
-    
+
     rules = validation_rules.get(language.lower(), [])
     if not rules:
         return True  # 未知语言类型，允许通过
-    
+
     # 检查是否至少匹配一个规则
     for rule in rules:
         if re.search(rule, content, re.IGNORECASE):
             return True
-    
+
     return False
+
+
+def validate_content_size(content: str, is_authenticated: bool = False) -> None:
+    """
+    验证内容大小是否符合限制
+    - 匿名用户: 最大 256KB
+    - 认证用户: 最大 1MB
+
+    Args:
+        content: 要验证的内容
+        is_authenticated: 是否为认证用户
+
+    Raises:
+        HTTPException: 如果内容超过大小限制
+    """
+    if not content:
+        return
+
+    # 计算内容的字节大小（UTF-8编码）
+    content_size = len(content.encode('utf-8'))
+
+    # 根据用户类型确定大小限制
+    if is_authenticated:
+        max_size = settings.MAX_CONTENT_SIZE_AUTHENTICATED
+        max_size_mb = max_size / (1024 * 1024)
+        user_type = "authenticated users"
+    else:
+        max_size = settings.MAX_CONTENT_SIZE_ANONYMOUS
+        max_size_kb = max_size / 1024
+        user_type = "anonymous users"
+
+    # 检查是否超过限制
+    if content_size > max_size:
+        if is_authenticated:
+            detail = f"Content size ({content_size / (1024 * 1024):.2f}MB) exceeds the maximum limit of {max_size_mb:.0f}MB for {user_type}"
+        else:
+            detail = f"Content size ({content_size / 1024:.2f}KB) exceeds the maximum limit of {max_size_kb:.0f}KB for {user_type}"
+
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=detail
+        )
 
 
 def add_security_headers(response: Response) -> None:
